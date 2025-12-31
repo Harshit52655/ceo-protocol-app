@@ -1,13 +1,13 @@
 import streamlit as st
 import datetime
 import pandas as pd
+import random
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Harshit's Growth Engine", page_icon="🦁", layout="wide")
 
 # --- DATA: MOCK REAL-TIME RECOMMENDATIONS ---
-# In a real startup, this would come from a live API. Here, we structure it to look dynamic.
-
+# This dictionary acts as your "Smart Engine" database.
 course_options = {
     "Python (Data Structures)": {
         "paid": {"name": "Boss Coder Academy", "url": "https://www.bosscoderacademy.com/", "cost": "Paid", "type": "Cohort"},
@@ -27,6 +27,7 @@ course_options = {
 }
 
 # --- SESSION STATE (Memory) ---
+# This remembers your progress as long as the app is running.
 if 'user_progress' not in st.session_state:
     st.session_state.user_progress = 0 # Total days showed up (No Streak Anxiety)
 if 'current_course' not in st.session_state:
@@ -118,7 +119,7 @@ with c3:
 
 # 3. REAL-TIME CONTENT FEED (Simulated)
 st.divider()
-st.subheader("📰 Fresh Reads for You (Simulated Feed)")
+st.subheader("📰 Fresh Reads for You")
 st.caption("Curated based on your 'CEO by 32' Goal")
 
 # This list simulates a "Daily Feed" that could come from an API later
