@@ -1,94 +1,96 @@
 import streamlit as st
 import random
 import datetime
+import pandas as pd
+from streamlit_gsheets import GSheetsConnection
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Harshit's CEO Protocol", page_icon="🚀")
 
-# --- DATABASE OF TASKS ---
-career_tasks = [
-    "Boss Coder: Solve 1 problem on 2D Arrays [Python]",
-    "Read 10 pages of 'High Output Management'",
-    "Write a 150-word script for a potential TEDx talk",
-    "Review 'BharatPe' product journey and write 3 lessons learned",
-    "Analyze a new Fintech regulation from RBI",
-    "Update LinkedIn: Share a product learning (No virality chasing)"
+# --- 1. CURATED DATABASE (The "Guru" Content) ---
+# Instead of random text, we now have structured data with Titles and Links.
+
+# CAREER: Strategic Thinking & CEO Mindset
+career_library = [
+    {"title": "Lesson: How to Be Strategic", "type": "Article", "url": "https://www.lennysnewsletter.com/p/how-to-be-strategic", "time": "10 min"},
+    {"title": "Video: Steve Jobs on Managing People", "type": "Video", "url": "https://www.youtube.com/watch?v=f60dheI4ARg", "time": "15 min"},
+    {"title": "Deep Work: The 3 Groups", "type": "Concept", "url": "https://calnewport.com/deep-work-rules-for-focused-success-in-a-distracted-world/", "time": "5 min"},
+    {"title": "Code: Solve 'Rotate Image' (2D Matrix)", "type": "Python", "url": "https://leetcode.com/problems/rotate-image/", "time": "20 min"},
+    {"title": "Essay: Maker's Schedule, Manager's Schedule", "type": "Essay", "url": "http://www.paulgraham.com/makersschedule.html", "time": "8 min"}
 ]
 
-soul_tasks = [
-    "Plan a thoughtful date idea (Relationship Goal)", 
-    "Research a local NGO/Social Cause for weekend volunteering",
-    "Go for a swim (if Summer) OR 30 min Walk without phone",
-    "Cook a new meal from scratch (Therapeutic)",
-    "Call a friend/family member just to listen",
-    "Complete 1 lesson on Duolingo (Language)"
+# SOUL: Psychology, Relationships, & Health
+soul_library = [
+    {"title": "Dating: The 36 Questions to Fall in Love", "type": "Action", "url": "https://www.nytimes.com/2015/01/09/style/no-37-big-wedding-or-small.html", "time": "Evening"},
+    {"title": "Life: The Tail End (Perspective on Parents)", "type": "Read", "url": "https://waitbutwhy.com/2015/12/the-tail-end.html", "time": "10 min"},
+    {"title": "Health: The Scientific 7-Minute Workout", "type": "Activity", "url": "https://well.blogs.nytimes.com/2013/05/09/the-scientific-7-minute-workout/", "time": "7 min"},
+    {"title": "Psychology: The decision matrix", "type": "Mental Model", "url": "https://fs.blog/mental-models/", "time": "15 min"},
+    {"title": "Giving: Effective Altruism Intro", "type": "Social Cause", "url": "https://www.effectivealtruism.org/articles/introduction-to-effective-altruism", "time": "12 min"}
 ]
 
-impulse_activities = [
-    "Watch a movie trailer for an upcoming film",
-    "Read 1 random article on Psychology Today",
-    "Do a 2-minute breathing exercise",
-    "Write down 3 things you are grateful for right now",
-    "Watch a 5-min snippet of a Stand-up Comedy"
-]
+# --- 2. GOOGLE SHEETS CONNECTION (The Brain) ---
+# This function tries to load data from the cloud. If it fails (setup not done), it falls back to a "Demo Mode".
 
-# --- THE MEMORY SYSTEM (Session State) ---
-# This 'backpack' keeps data persistent even when you click buttons.
+def load_data():
+    try:
+        # Try connecting to Google Sheets
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(worksheet="Sheet1")
+        return df, conn
+    except Exception:
+        # Fallback if connection isn't set up yet
+        return pd.DataFrame(columns=["Date", "Task", "Type", "Status"]), None
 
-if 'career_task' not in st.session_state:
-    st.session_state.career_task = random.choice(career_tasks)
+df, conn = load_data()
 
-if 'soul_task' not in st.session_state:
-    st.session_state.soul_task = random.choice(soul_tasks)
+# --- 3. SESSION STATE (Short Term Memory) ---
+if 'todays_career' not in st.session_state:
+    st.session_state.todays_career = random.choice(career_library)
+if 'todays_soul' not in st.session_state:
+    st.session_state.todays_soul = random.choice(soul_library)
 
-if 'streak' not in st.session_state:
-    st.session_state.streak = 12  # Starting dummy streak for motivation!
+# --- 4. THE APP DASHBOARD ---
+st.title("🚀 The CEO Protocol")
+st.markdown(f"**Profile:** Harshit | **Focus:** CEO by 32 | **Date:** {datetime.date.today()}")
 
-if 'history' not in st.session_state:
-    st.session_state.history = []
-
-# --- THE APP UI ---
-
-st.title("🚀 The CEO Protocol: Harshit's Journey")
-st.write(f"**Current Focus:** CEO by 32 | Status: {datetime.date.today()}")
-
-# Sidebar
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=100)
-st.sidebar.header(f"🔥 Streak: {st.session_state.streak} Days")
-st.sidebar.write("• **Role:** Sr. PM (Fintech)")
-st.sidebar.write("• **Tech:** Python (2D Arrays)")
-st.sidebar.markdown("---")
-st.sidebar.info("'Calm beats hustle. Long game only.'")
-
-# Main Dashboard
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("1. The Builder (Career)")
-    st.info(f"👉 {st.session_state.career_task}")
+    st.subheader("Build (Career)")
+    task = st.session_state.todays_career
+    st.info(f"**{task['type']}** ({task['time']})")
+    st.markdown(f"### [{task['title']}]({task['url']})")
     
-    if st.button("Mark Career Done"):
-        st.session_state.history.append(f"✅ Career: {st.session_state.career_task}")
-        st.success("Log added! 1% Better.")
-        st.balloons()
+    if st.button("Mark Career Complete"):
+        # Write to Google Sheet
+        if conn:
+            new_row = pd.DataFrame([{"Date": str(datetime.date.today()), "Task": task['title'], "Type": "Career", "Status": "Done"}])
+            updated_df = pd.concat([df, new_row], ignore_index=True)
+            conn.update(worksheet="Sheet1", data=updated_df)
+            st.success("Saved to Cloud Database!")
+        else:
+            st.warning("Google Sheet not connected yet. (Check Setup Instructions)")
 
 with col2:
-    st.subheader("2. The Monk (Soul)")
-    st.info(f"👉 {st.session_state.soul_task}")
+    st.subheader("Nourish (Soul)")
+    task = st.session_state.todays_soul
+    st.info(f"**{task['type']}** ({task['time']})")
+    st.markdown(f"### [{task['title']}]({task['url']})")
     
-    if st.button("Mark Soul Done"):
-        st.session_state.history.append(f"✅ Soul: {st.session_state.soul_task}")
-        st.success("Balance achieved.")
+    if st.button("Mark Soul Complete"):
+        # Write to Google Sheet
+        if conn:
+            new_row = pd.DataFrame([{"Date": str(datetime.date.today()), "Task": task['title'], "Type": "Soul", "Status": "Done"}])
+            updated_df = pd.concat([df, new_row], ignore_index=True)
+            conn.update(worksheet="Sheet1", data=updated_df)
+            st.success("Saved to Cloud Database!")
+        else:
+            st.warning("Google Sheet not connected yet.")
 
-# Impulse Section
-st.markdown("---")
-st.subheader("🧠 Impulse Control")
-if st.button("🎲 I'm bored - give me a distraction"):
-    surprise = random.choice(impulse_activities)
-    st.warning(f"**Do this instead of scrolling:** {surprise}")
-
-# Progress Log (Temporary Memory)
-st.markdown("---")
-with st.expander("📝 See Today's Log"):
-    for item in st.session_state.history:
-        st.write(item)
+# --- 5. PROGRESS SECTION ---
+st.divider()
+st.subheader("📊 Your Growth Log")
+if not df.empty:
+    st.dataframe(df)
+else:
+    st.write("No history found. Complete a task to start your streak.")
