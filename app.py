@@ -2,134 +2,126 @@ import streamlit as st
 import datetime
 import pandas as pd
 import random
+from openai import OpenAI
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Harshit's Growth Engine", page_icon="🦁", layout="wide")
+st.set_page_config(page_title="Harshit's AI Coach", page_icon="🧠", layout="wide")
 
-# --- DATA: MOCK REAL-TIME RECOMMENDATIONS ---
-# This dictionary acts as your "Smart Engine" database.
-course_options = {
-    "Python (Data Structures)": {
-        "paid": {"name": "Boss Coder Academy", "url": "https://www.bosscoderacademy.com/", "cost": "Paid", "type": "Cohort"},
-        "free": {"name": "CS50 by Harvard (EdX)", "url": "https://cs50.harvard.edu/x/", "cost": "Free", "type": "Self-paced"},
-        "duration_hours": 60
-    },
-    "Product Management": {
-        "paid": {"name": "Reforge / Lenny's Course", "url": "https://www.reforge.com/", "cost": "$$$", "type": "Deep Dive"},
-        "free": {"name": "Y Combinator Startup School", "url": "https://www.startupschool.org/", "cost": "Free", "type": "Practical"},
-        "duration_hours": 40
-    },
-    "Leadership & Strategy": {
-        "paid": {"name": "Harvard Online: Strategy", "url": "https://online.hbs.edu/courses/strategy/", "cost": "$$$", "type": "Certificate"},
-        "free": {"name": "Acquired Podcast + Hamilton Helmer 7 Powers", "url": "https://www.acquired.fm/", "cost": "Free", "type": "Audio"},
-        "duration_hours": 20
-    }
-}
-
-# --- SESSION STATE (Memory) ---
-# This remembers your progress as long as the app is running.
+# --- SESSION STATE INITIALIZATION ---
 if 'user_progress' not in st.session_state:
-    st.session_state.user_progress = 0 # Total days showed up (No Streak Anxiety)
+    st.session_state.user_progress = 0
 if 'current_course' not in st.session_state:
-    st.session_state.current_course = "Python (Data Structures)" # Default
+    st.session_state.current_course = "Python (Data Structures)" # The Anchor
 if 'course_progress_hours' not in st.session_state:
     st.session_state.course_progress_hours = 0.0
+if 'ai_plan' not in st.session_state:
+    st.session_state.ai_plan = None # Stores the daily AI generation
 
-# --- SIDEBAR: USER SETTINGS ---
+# --- THE AI ENGINE ---
+def get_ai_guidance(topic, hours_done):
+    """
+    This function sends a prompt to the AI.
+    It enforces the 'No Drop' rule by feeding current progress.
+    """
+    
+    # 1. Check for API Key (Secrets)
+    api_key = st.secrets.get("OPENAI_API_KEY")
+    
+    if not api_key:
+        return None # Fallback to manual library if no key
+    
+    client = OpenAI(api_key=api_key)
+    
+    # 2. The Strict "Continuity" Prompt
+    prompt = f"""
+    User Context:
+    - Name: Harshit (Aspiring CEO, 30yo)
+    - Current Active Goal: {topic}
+    - Progress: {hours_done} hours completed so far.
+    
+    YOUR JOB:
+    Act as a strict yet encouraging mentor.
+    1. Do NOT suggest changing topics. Keep him on {topic}.
+    2. Suggest exactly ONE specific sub-topic or exercise for today (45 mins).
+    3. Explain WHY this specific step is the logical next step based on his progress.
+    4. Provide a 'Eureka' thought related to this topic.
+    
+    Output Format:
+    **Task:** [Task Name]
+    **Why:** [Reasoning]
+    **Eureka:** [Insight]
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo", # Or gpt-4 if you want to pay more
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return None
+
+# --- SIDEBAR ---
 with st.sidebar:
-    st.header(f"🦁 Legend Score: {st.session_state.user_progress}")
-    st.caption("Total days you invested in yourself (No pressure).")
+    st.header(f"🧠 AI Coach")
+    st.write(f"**Focus:** {st.session_state.current_course}")
     
-    st.divider()
-    st.subheader("🎓 Current Focus")
-    # User selects what they want to learn
-    selected_topic = st.selectbox("I want to learn:", list(course_options.keys()))
+    # Allow changing focus, but warn user
+    new_topic = st.selectbox("Change Focus (Careful!)", 
+                             ["Python (Data Structures)", "Product Strategy", "Leadership", "Swimming"])
     
-    # Update state if changed
-    if selected_topic != st.session_state.current_course:
-        st.session_state.current_course = selected_topic
-        st.session_state.course_progress_hours = 0.0 # Reset progress for new topic
-        st.rerun()
+    if new_topic != st.session_state.current_course:
+        st.warning("Switching topics resets your flow. Are you sure?")
+        if st.button("Yes, I'm switching"):
+            st.session_state.current_course = new_topic
+            st.session_state.course_progress_hours = 0.0
+            st.session_state.ai_plan = None # Reset plan
+            st.rerun()
 
 # --- MAIN DASHBOARD ---
-st.title("The Growth Engine")
-st.write(f"**Goal:** CEO by 32 | **Focus:** {st.session_state.current_course}")
+st.title(f"🚀 Harshit's Protocol")
+st.caption(f"Powered by AI • {datetime.date.today().strftime('%B %d, %Y')}")
 
-# 1. THE SMART COURSE RECOMMENDATION ENGINE
-st.subheader(f"1. Master: {st.session_state.current_course}")
+# 1. GENERATE TODAY'S PLAN
+if st.session_state.ai_plan is None:
+    with st.spinner("AI is analyzing your progress and generating the next step..."):
+        # Call the AI
+        plan = get_ai_guidance(st.session_state.current_course, st.session_state.course_progress_hours)
+        
+        if plan:
+            st.session_state.ai_plan = plan
+        else:
+            # FALLBACK (If no API Key or Error)
+            st.session_state.ai_plan = f"""
+            **Task:** Continue {st.session_state.current_course}
+            **Why:** AI Key not found. Running in offline mode.
+            **Eureka:** Consistency is the only algorithm that matters.
+            """
 
-# Fetch Data
-course_data = course_options[st.session_state.current_course]
-total_hours = course_data['duration_hours']
-hours_done = st.session_state.course_progress_hours
-percent_done = min(hours_done / total_hours, 1.0)
+# 2. DISPLAY THE PLAN
+st.subheader("🎯 Today's AI Directive")
+with st.container(border=True):
+    st.markdown(st.session_state.ai_plan)
 
-# Display Progress
-st.progress(percent_done)
-st.caption(f"Progress: {int(hours_done)} / {total_hours} Hours")
-
-col1, col2 = st.columns(2)
-
-# Option A: The "Commitment" (Paid/Current)
+# 3. ACTION BUTTON
+st.write("")
+col1, col2 = st.columns([1, 4])
 with col1:
-    with st.container(border=True):
-        st.write("💎 **Your Premium Path**")
-        st.subheader(course_data['paid']['name'])
-        st.write(f"Type: {course_data['paid']['type']}")
-        st.link_button(f"Continue Course", course_data['paid']['url'])
+    if st.button("✅ I did it (45 mins)"):
+        st.session_state.course_progress_hours += 0.75
+        st.session_state.user_progress += 1
+        st.session_state.ai_plan = None # Clear plan so tomorrow gets a new one
+        st.balloons()
+        st.rerun()
 
-# Option B: The "Explorer" (Free Alternative)
-with col2:
-    with st.container(border=True):
-        st.write("🌱 **The Free Alternative**")
-        st.subheader(course_data['free']['name'])
-        st.write(f"Type: {course_data['free']['type']}")
-        st.write("*Good for: Quick reference or second opinion.*")
-        st.link_button(f"Check this out", course_data['free']['url'])
-
-# Daily Action Logic
-st.info(f"📅 **Today's Plan:** To finish this in 2 months, invest **45 mins** today.")
-
-if st.button("✅ I did 45 mins of learning"):
-    st.session_state.course_progress_hours += 0.75
-    st.session_state.user_progress += 1
-    st.balloons()
-    st.rerun()
-
-# 2. THE HOLISTIC CHECK-IN (Non-Negotiables)
+# 4. PROGRESS VISUALIZER
 st.divider()
-st.subheader("2. The Non-Negotiables (Life Balance)")
+st.caption("Journey Continuity")
+# Visualizing that 'dropping' is not happening, just climbing
+st.progress(min(st.session_state.course_progress_hours / 50.0, 1.0))
+st.caption(f"You have invested {st.session_state.course_progress_hours} hours in {st.session_state.current_course}. Keep climbing.")
 
-c1, c2, c3 = st.columns(3)
-
-with c1:
-    st.write("❤️ **Relationship**")
-    if st.button("Called/Messaged Partner"):
-        st.toast("Relationship deposit made! 💍")
-
-with c2:
-    st.write("💪 **Health**")
-    if st.button("Did 30 min Activity"):
-        st.toast("Body energized! ⚡")
-
-with c3:
-    st.write("🌍 **Impact**")
-    if st.button("Read Social Cause News"):
-        st.toast("Perspective widened. 🌏")
-
-# 3. REAL-TIME CONTENT FEED (Simulated)
-st.divider()
-st.subheader("📰 Fresh Reads for You")
-st.caption("Curated based on your 'CEO by 32' Goal")
-
-# This list simulates a "Daily Feed" that could come from an API later
-feed = [
-    {"source": "Harvard Biz Review", "title": "Why 30-year-old CEOs fail (and how to avoid it)", "tag": "Strategy"},
-    {"source": "TechCrunch", "title": "The rise of AI in Fintech: What PMs need to know", "tag": "Industry"},
-    {"source": "Psychology Today", "title": "Overcoming 'Imposter Syndrome' in High Growth Roles", "tag": "Mindset"}
-]
-
-for item in feed:
-    with st.expander(f"{item['tag']}: {item['title']}"):
-        st.write(f"Source: {item['source']}")
-        st.write("Read this to stay ahead of the curve.")
+# 5. REFLECTION (Manual)
+with st.expander("Add a Note to your AI Coach"):
+    st.text_input("What was hard about today's task?")
