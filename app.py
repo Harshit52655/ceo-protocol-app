@@ -1,180 +1,191 @@
 import streamlit as st
-import datetime
-import json
 import random
-from openai import OpenAI
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Harshit's Raj Guru", page_icon="🪔", layout="wide")
+st.set_page_config(page_title="Harshit's Mood OS", page_icon="🦁", layout="wide")
 
-# --- 1. THE MASTER INGREDIENTS LIST ---
-# This includes EVERYTHING: CEO skills, Python, Spirituality, Family, Dancing, and Socializing.
-user_profile = {
-    # PILLAR 1: DHARMA (Duty, Ambition, & Leverage)
-    # The work you do to build your empire and skills.
-    "dharma_career": [
-        "Python: Data Structures & Logic Practice",
-        "Financial Literacy: Read P&L / Unit Economics article",
-        "System Design: Plan how to delegate one personal task",
-        "Public Speaking: Watch 1 TEDx talk & analyze the delivery",
-        "CEO Challenge: 'The Ask' (Negotiate a bill or ask for a discount)",
-        "Strategy: Read 5 pages of 'High Output Management'"
-    ],
-    
-    # PILLAR 2: SPIRIT & ROOTS (God, Family, & Grounding)
-    # The connection to the Divine and your loved ones.
-    "spirit_roots": [
-        "Prayer / Chanting (5 mins connection with God)",
-        "Family: Call Parents and listen to their stories",
-        "Relationship: Plan a thoughtful date or gesture",
-        "Silence: 10 mins of meditation (No phone)",
-        "Service: Research a social cause to support"
-    ],
-    
-    # PILLAR 3: LEELA (Divine Play, Joy, & Energy)
-    # Lightness of being. Dancing, moving, laughing.
-    "leela_joy": [
-        "Dance Flow: Put on music and move for 10 mins",
-        "Swimming / Physical Play (Summer)",
-        "Social: Text a friend to meet up",
-        "Cooking: Make a quick meal from scratch",
-        "Cinema: Watch a classic movie trailer",
-        "Reading: Tech Trends or Light Fiction"
-    ],
-    
-    "max_time": "45 minutes"
+# --- 1. THE MOOD MATRIX (The Brain) ---
+# This maps your mood to specific types of activities.
+mood_matrix = {
+    "🔥 High Energy": {
+        "ceo_task": [
+            {"title": "Financial Literacy: Study P&L Deep Dive", "url": "https://online.hbs.edu/blog/post/how-to-read-a-profit-and-loss-statement"},
+            {"title": "Strategy: 7 Powers (Heavy Reading)", "url": "https://www.lennysnewsletter.com/p/7-powers-hamilton-helmer"},
+            {"title": "System Design: Map out a delegation workflow", "url": "#"}
+        ],
+        "spirit": ["Chanting (Loud & Energetic)", "Power Yoga / Surya Namaskar", "Call a Mentor (High stakes)"],
+        "leela": ["High Intensity Dance (Bollywood)", "100 Pushups/Jacks", "Go for a Run"]
+    },
+    "🔋 Low Battery": {
+        "ceo_task": [
+            {"title": "Light Reading: Tech Trends", "url": "https://techcrunch.com/"},
+            {"title": "Watch: Steve Jobs Storytelling (Passive)", "url": "https://www.youtube.com/watch?v=9tnd97G5P2g"},
+            {"title": "Review: Look at old notes (Low effort)", "url": "#"}
+        ],
+        "spirit": ["Yoga Nidra (Sleep Meditation)", "Listen to soothing Bhajan", "Gratitude Journaling (3 lines)"],
+        "leela": ["Listen to Acoustic Music", "Watch a comforting movie trailer", "Stretching (Gentle)"]
+    },
+    "😰 Anxious / Overwhelmed": {
+        "ceo_task": [
+            {"title": "Organization: Clean Desktop/Email (Control)", "url": "#"},
+            {"title": "Planning: Write tomorrow's To-Do list", "url": "#"},
+            {"title": "Read: 'The Psychological Price of Entrepreneurship'", "url": "https://www.inc.com/magazine/201309/jessica-bruder/psychological-price-of-entrepreneurship.html"}
+        ],
+        "spirit": ["Box Breathing (4-4-4-4)", "Read 1 page of Stoicism", "Silence (5 mins)"],
+        "leela": ["Cook a comfort meal", "Walk in nature (No phone)", "Clean your room (Therapeutic)"]
+    },
+    "🎨 Creative": {
+        "ceo_task": [
+            {"title": "Brainstorm: 10 Ideas for a Startup", "url": "#"},
+            {"title": "Write: 1 LinkedIn Post draft", "url": "#"},
+            {"title": "Vision: Sketch your life at age 40", "url": "#"}
+        ],
+        "spirit": ["Visualize your future self", "Read Poetry/Gita", "Deep conversation with partner"],
+        "leela": ["Cook a new recipe (Experiment)", "Paint / Draw / Doodle", "Explore new music genre"]
+    }
 }
 
-# --- SESSION STATE ---
-if 'daily_plan' not in st.session_state:
-    st.session_state.daily_plan = None
-if 'karma_score' not in st.session_state:
-    st.session_state.karma_score = 0
+# --- 2. SESSION STATE & CONFIG ---
+if 'active_project' not in st.session_state:
+    st.session_state.active_project = {"name": "Python (Boss Coder)", "hours_done": 12.0, "total_hours": 60}
 
-# --- THE AI RAJ GURU (The Brain) ---
-def get_daily_guidance():
-    api_key = st.secrets.get("OPENAI_API_KEY")
-    
-    # FALLBACK (Offline Mode - if no Key found)
-    if not api_key:
+if 'current_mood' not in st.session_state:
+    st.session_state.current_mood = "🔥 High Energy"
+
+# Helper to pick task based on mood
+def get_task(category, mode="random"):
+    # If mode is 'course', we always return the main project
+    if category == "dharma" and mode == "course":
+        proj = st.session_state.active_project
         return {
-            "dharma": {"task": "Python: 2D Arrays", "time": "20 mins", "reason": "Logic building."},
-            "spirit": {"task": "Call Mom & Dad", "time": "15 mins", "reason": "Roots matter."},
-            "leela": {"task": "Dance to 2 songs", "time": "10 mins", "reason": "Shake off the stress."},
-            "message": "Offline Mode: The path is simple today."
+            "title": f"Continue: {proj['name']}",
+            "desc": "The Main Mission.",
+            "type": "Project",
+            "is_course": True
         }
+    
+    # Otherwise, look at the mood matrix
+    mood_data = mood_matrix[st.session_state.current_mood]
+    
+    if category == "dharma":
+        item = random.choice(mood_data['ceo_task'])
+        return {"title": item['title'], "desc": "CEO Skill", "url": item['url'], "is_course": False}
+    elif category == "spirit":
+        return {"title": random.choice(mood_data['spirit'])}
+    elif category == "leela":
+        return {"title": random.choice(mood_data['leela'])}
 
-    client = OpenAI(api_key=api_key)
-    
-    # We ask the AI to be your wise Royal Mentor
-    prompt = f"""
-    Act as a wise 'Raj Guru' (Royal Mentor) for Harshit, a future CEO (age 30).
-    Create a 'Daily Path' that balances Ambition (Dharma), Connection (Spirit), and Joy (Leela).
-    
-    Total Time Budget: STRICTLY {user_profile['max_time']}.
-    
-    INSTRUCTIONS:
-    1. DHARMA (20m): Pick ONE from {user_profile['dharma_career']}.
-       - Focus on the 'CEO Gap' (Strategy/Finance) OR 'Builder Skill' (Python).
-       
-    2. SPIRIT (15m): Pick ONE from {user_profile['spirit_roots']}.
-       - This is non-negotiable grounding. God, Family, or Inner Peace.
-       
-    3. LEELA (10m): Pick ONE from {user_profile['leela_joy']}.
-       - Ensure he moves his body or laughs. No stress here.
-       
-    TONE:
-    - Wise, calm, and slightly majestic.
-    - No "Hustle" language. Use words like "Cultivate," "Honor," "Flow."
-    
-    Output purely strictly valid JSON:
-    {{
-      "dharma": {{"task": "...", "time": "...", "reason": "..."}},
-      "spirit": {{"task": "...", "time": "...", "reason": "..."}},
-      "leela": {{"task": "...", "time": "..."}},
-      "message": "A short wisdom quote for the day"
-    }}
-    """
-    
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.9, # High variety
-            response_format={"type": "json_object"}
-        )
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        st.error(f"The Guru is meditating (Error): {e}")
-        return None
+# Initialize Tasks if empty
+if 'tasks' not in st.session_state:
+    st.session_state.tasks = {
+        "dharma": get_task("dharma", mode="course"),
+        "spirit": get_task("spirit"),
+        "leela": get_task("leela")
+    }
 
 # --- UI LAYOUT ---
-st.title("🪔 Harshit's Life Protocol")
-st.caption(f"CEO Ambition • Spiritual Roots • joyful Living | Target: {user_profile['max_time']}/day")
+st.title("🦁 Harshit's Life Protocol")
 
-# ACTION BUTTON
-if st.button("✨ Seek Today's Guidance"):
-    with st.spinner("Consulting the stars..."):
-        st.session_state.daily_plan = get_daily_guidance()
-        st.rerun()
+# MOOD SELECTOR (The New Feature)
+st.write("### How are you feeling right now?")
+selected_mood = st.selectbox("", list(mood_matrix.keys()), label_visibility="collapsed")
 
-# DISPLAY THE PATH
-if st.session_state.daily_plan:
-    plan = st.session_state.daily_plan
+# If mood changes, auto-shuffle everything to match
+if selected_mood != st.session_state.current_mood:
+    st.session_state.current_mood = selected_mood
+    st.session_state.tasks['dharma'] = get_task("dharma", mode="course") # Keep course as default
+    st.session_state.tasks['spirit'] = get_task("spirit")
+    st.session_state.tasks['leela'] = get_task("leela")
+    st.rerun()
+
+st.divider()
+
+# COLUMNS
+col1, col2, col3 = st.columns([1, 1, 1])
+
+# --- 1. DHARMA (Duty) ---
+with col1:
+    st.subheader("⚔️ Dharma")
+    t = st.session_state.tasks['dharma']
     
-    # The Guru's Message
-    st.info(f"**Guru's Wisdom:** {plan.get('message', 'Balance is power.')}")
-    
-    # Three Columns for Three Pillars
-    c1, c2, c3 = st.columns([1, 1, 1])
-    
-    # 1. DHARMA
-    with c1:
-        st.subheader("🦁 Dharma (Duty)")
-        with st.container(border=True):
-            st.markdown(f"### {plan['dharma']['task']}")
-            st.caption(f"⏱️ {plan['dharma']['time']}")
-            st.write(f"_{plan['dharma']['reason']}_")
-            if st.button("Duty Fulfilled"):
+    with st.container(border=True):
+        st.markdown(f"**{t['title']}**")
+        if t.get('url') and t['url'] != "#":
+            st.link_button("🔗 Open Resource", t['url'])
+        
+        if t.get('is_course'):
+            if st.button("✅ Log 20 Mins"):
+                st.session_state.active_project['hours_done'] += 0.33
                 st.balloons()
-                st.session_state.karma_score += 1
+                st.rerun()
+        else:
+            if st.button("✅ Mark Read"):
+                st.success("Done.")
 
-    # 2. SPIRIT
-    with c2:
-        st.subheader("🪷 Spirit (Roots)")
-        with st.container(border=True):
-            st.markdown(f"### {plan['spirit']['task']}")
-            st.caption(f"⏱️ {plan['spirit']['time']}")
-            st.write(f"_{plan['spirit']['reason']}_")
-            if st.button("Connected"):
-                st.success("Peace.")
-                st.session_state.karma_score += 1
-
-    # 3. LEELA
-    with c3:
-        st.subheader("💃 Leela (Play)")
-        with st.container(border=True):
-            st.markdown(f"### {plan['leela']['task']}")
-            st.caption(f"⏱️ {plan['leela']['time']}")
-            st.write("Enjoy the flow.")
-            if st.button("Joy Felt"):
-                st.write("✨")
-
-    # Shuffle Option
-    st.divider()
-    if st.button("🔄 This path doesn't align today. Shuffle."):
-        st.session_state.daily_plan = None
+    # Shuffle Buttons
+    c1, c2 = st.columns(2)
+    if c1.button("🔄 Swap (Mood Based)"):
+        st.session_state.tasks['dharma'] = get_task("dharma", mode="random")
+        st.rerun()
+    if c2.button("🔙 Back to Project"):
+        st.session_state.tasks['dharma'] = get_task("dharma", mode="course")
         st.rerun()
 
-# SIDEBAR STATS
+# --- 2. SPIRIT (Roots) ---
+with col2:
+    st.subheader("🪷 Spirit")
+    t = st.session_state.tasks['spirit']
+    
+    with st.container(border=True):
+        st.markdown(f"**{t['title']}**")
+        st.caption("15 Mins • Grounding")
+        if st.button("🙏 Connected"):
+            st.success("Peace.")
+            
+    if st.button("🔄 Shuffle Spirit"):
+        st.session_state.tasks['spirit'] = get_task("spirit")
+        st.rerun()
+
+# --- 3. LEELA (Play) ---
+with col3:
+    st.subheader("💃 Leela")
+    t = st.session_state.tasks['leela']
+    
+    with st.container(border=True):
+        st.markdown(f"**{t['title']}**")
+        st.caption("10 Mins • Play")
+        if st.button("✨ Joy Felt"):
+            st.write("✨")
+            
+    if st.button("🔄 Shuffle Joy"):
+        st.session_state.tasks['leela'] = get_task("leela")
+        st.rerun()
+
+# --- SIDEBAR: PROJECT SETTINGS (The "Dynamic Input" Feature) ---
 with st.sidebar:
-    st.header(f"🕉️ Karma Score: {st.session_state.karma_score}")
-    st.caption("Days you showed up for yourself.")
+    st.header("🦁 Your Empire")
+    
+    # Progress Bar
+    proj = st.session_state.active_project
+    prog = min(proj['hours_done'] / proj['total_hours'], 1.0)
+    st.write(f"**Focus:** {proj['name']}")
+    st.progress(prog)
+    st.caption(f"{int(proj['hours_done'])} / {proj['total_hours']} Hours")
+    
     st.divider()
-    st.write("**Your Current Ingredients:**")
-    with st.expander("See Dharma List"):
-        st.write(user_profile['dharma_career'])
-    with st.expander("See Spirit List"):
-        st.write(user_profile['spirit_roots'])
-    with st.expander("See Leela List"):
-        st.write(user_profile['leela_joy'])
+    
+    # EDIT FORM: Change your project anytime
+    with st.expander("⚙️ Edit Active Project"):
+        new_name = st.text_input("New Course/Goal Name", value=proj['name'])
+        new_hours = st.number_input("Total Hours Required", value=int(proj['total_hours']))
+        new_done = st.number_input("Hours Already Done", value=float(proj['hours_done']))
+        
+        if st.button("Update Project"):
+            st.session_state.active_project = {
+                "name": new_name,
+                "total_hours": new_hours,
+                "hours_done": new_done
+            }
+            st.session_state.tasks['dharma'] = get_task("dharma", mode="course")
+            st.success("Project Updated!")
+            st.rerun()
