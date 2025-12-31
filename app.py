@@ -1,96 +1,134 @@
 import streamlit as st
-import random
 import datetime
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Harshit's CEO Protocol", page_icon="🚀")
+st.set_page_config(page_title="Harshit's Growth Engine", page_icon="🦁", layout="wide")
 
-# --- 1. CURATED DATABASE (The "Guru" Content) ---
-# Instead of random text, we now have structured data with Titles and Links.
+# --- DATA: MOCK REAL-TIME RECOMMENDATIONS ---
+# In a real startup, this would come from a live API. Here, we structure it to look dynamic.
 
-# CAREER: Strategic Thinking & CEO Mindset
-career_library = [
-    {"title": "Lesson: How to Be Strategic", "type": "Article", "url": "https://www.lennysnewsletter.com/p/how-to-be-strategic", "time": "10 min"},
-    {"title": "Video: Steve Jobs on Managing People", "type": "Video", "url": "https://www.youtube.com/watch?v=f60dheI4ARg", "time": "15 min"},
-    {"title": "Deep Work: The 3 Groups", "type": "Concept", "url": "https://calnewport.com/deep-work-rules-for-focused-success-in-a-distracted-world/", "time": "5 min"},
-    {"title": "Code: Solve 'Rotate Image' (2D Matrix)", "type": "Python", "url": "https://leetcode.com/problems/rotate-image/", "time": "20 min"},
-    {"title": "Essay: Maker's Schedule, Manager's Schedule", "type": "Essay", "url": "http://www.paulgraham.com/makersschedule.html", "time": "8 min"}
-]
+course_options = {
+    "Python (Data Structures)": {
+        "paid": {"name": "Boss Coder Academy", "url": "https://www.bosscoderacademy.com/", "cost": "Paid", "type": "Cohort"},
+        "free": {"name": "CS50 by Harvard (EdX)", "url": "https://cs50.harvard.edu/x/", "cost": "Free", "type": "Self-paced"},
+        "duration_hours": 60
+    },
+    "Product Management": {
+        "paid": {"name": "Reforge / Lenny's Course", "url": "https://www.reforge.com/", "cost": "$$$", "type": "Deep Dive"},
+        "free": {"name": "Y Combinator Startup School", "url": "https://www.startupschool.org/", "cost": "Free", "type": "Practical"},
+        "duration_hours": 40
+    },
+    "Leadership & Strategy": {
+        "paid": {"name": "Harvard Online: Strategy", "url": "https://online.hbs.edu/courses/strategy/", "cost": "$$$", "type": "Certificate"},
+        "free": {"name": "Acquired Podcast + Hamilton Helmer 7 Powers", "url": "https://www.acquired.fm/", "cost": "Free", "type": "Audio"},
+        "duration_hours": 20
+    }
+}
 
-# SOUL: Psychology, Relationships, & Health
-soul_library = [
-    {"title": "Dating: The 36 Questions to Fall in Love", "type": "Action", "url": "https://www.nytimes.com/2015/01/09/style/no-37-big-wedding-or-small.html", "time": "Evening"},
-    {"title": "Life: The Tail End (Perspective on Parents)", "type": "Read", "url": "https://waitbutwhy.com/2015/12/the-tail-end.html", "time": "10 min"},
-    {"title": "Health: The Scientific 7-Minute Workout", "type": "Activity", "url": "https://well.blogs.nytimes.com/2013/05/09/the-scientific-7-minute-workout/", "time": "7 min"},
-    {"title": "Psychology: The decision matrix", "type": "Mental Model", "url": "https://fs.blog/mental-models/", "time": "15 min"},
-    {"title": "Giving: Effective Altruism Intro", "type": "Social Cause", "url": "https://www.effectivealtruism.org/articles/introduction-to-effective-altruism", "time": "12 min"}
-]
+# --- SESSION STATE (Memory) ---
+if 'user_progress' not in st.session_state:
+    st.session_state.user_progress = 0 # Total days showed up (No Streak Anxiety)
+if 'current_course' not in st.session_state:
+    st.session_state.current_course = "Python (Data Structures)" # Default
+if 'course_progress_hours' not in st.session_state:
+    st.session_state.course_progress_hours = 0.0
 
-# --- 2. GOOGLE SHEETS CONNECTION (The Brain) ---
-# This function tries to load data from the cloud. If it fails (setup not done), it falls back to a "Demo Mode".
+# --- SIDEBAR: USER SETTINGS ---
+with st.sidebar:
+    st.header(f"🦁 Legend Score: {st.session_state.user_progress}")
+    st.caption("Total days you invested in yourself (No pressure).")
+    
+    st.divider()
+    st.subheader("🎓 Current Focus")
+    # User selects what they want to learn
+    selected_topic = st.selectbox("I want to learn:", list(course_options.keys()))
+    
+    # Update state if changed
+    if selected_topic != st.session_state.current_course:
+        st.session_state.current_course = selected_topic
+        st.session_state.course_progress_hours = 0.0 # Reset progress for new topic
+        st.rerun()
 
-def load_data():
-    try:
-        # Try connecting to Google Sheets
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        df = conn.read(worksheet="Sheet1")
-        return df, conn
-    except Exception:
-        # Fallback if connection isn't set up yet
-        return pd.DataFrame(columns=["Date", "Task", "Type", "Status"]), None
+# --- MAIN DASHBOARD ---
+st.title("The Growth Engine")
+st.write(f"**Goal:** CEO by 32 | **Focus:** {st.session_state.current_course}")
 
-df, conn = load_data()
+# 1. THE SMART COURSE RECOMMENDATION ENGINE
+st.subheader(f"1. Master: {st.session_state.current_course}")
 
-# --- 3. SESSION STATE (Short Term Memory) ---
-if 'todays_career' not in st.session_state:
-    st.session_state.todays_career = random.choice(career_library)
-if 'todays_soul' not in st.session_state:
-    st.session_state.todays_soul = random.choice(soul_library)
+# Fetch Data
+course_data = course_options[st.session_state.current_course]
+total_hours = course_data['duration_hours']
+hours_done = st.session_state.course_progress_hours
+percent_done = min(hours_done / total_hours, 1.0)
 
-# --- 4. THE APP DASHBOARD ---
-st.title("🚀 The CEO Protocol")
-st.markdown(f"**Profile:** Harshit | **Focus:** CEO by 32 | **Date:** {datetime.date.today()}")
+# Display Progress
+st.progress(percent_done)
+st.caption(f"Progress: {int(hours_done)} / {total_hours} Hours")
 
 col1, col2 = st.columns(2)
 
+# Option A: The "Commitment" (Paid/Current)
 with col1:
-    st.subheader("Build (Career)")
-    task = st.session_state.todays_career
-    st.info(f"**{task['type']}** ({task['time']})")
-    st.markdown(f"### [{task['title']}]({task['url']})")
-    
-    if st.button("Mark Career Complete"):
-        # Write to Google Sheet
-        if conn:
-            new_row = pd.DataFrame([{"Date": str(datetime.date.today()), "Task": task['title'], "Type": "Career", "Status": "Done"}])
-            updated_df = pd.concat([df, new_row], ignore_index=True)
-            conn.update(worksheet="Sheet1", data=updated_df)
-            st.success("Saved to Cloud Database!")
-        else:
-            st.warning("Google Sheet not connected yet. (Check Setup Instructions)")
+    with st.container(border=True):
+        st.write("💎 **Your Premium Path**")
+        st.subheader(course_data['paid']['name'])
+        st.write(f"Type: {course_data['paid']['type']}")
+        st.link_button(f"Continue Course", course_data['paid']['url'])
 
+# Option B: The "Explorer" (Free Alternative)
 with col2:
-    st.subheader("Nourish (Soul)")
-    task = st.session_state.todays_soul
-    st.info(f"**{task['type']}** ({task['time']})")
-    st.markdown(f"### [{task['title']}]({task['url']})")
-    
-    if st.button("Mark Soul Complete"):
-        # Write to Google Sheet
-        if conn:
-            new_row = pd.DataFrame([{"Date": str(datetime.date.today()), "Task": task['title'], "Type": "Soul", "Status": "Done"}])
-            updated_df = pd.concat([df, new_row], ignore_index=True)
-            conn.update(worksheet="Sheet1", data=updated_df)
-            st.success("Saved to Cloud Database!")
-        else:
-            st.warning("Google Sheet not connected yet.")
+    with st.container(border=True):
+        st.write("🌱 **The Free Alternative**")
+        st.subheader(course_data['free']['name'])
+        st.write(f"Type: {course_data['free']['type']}")
+        st.write("*Good for: Quick reference or second opinion.*")
+        st.link_button(f"Check this out", course_data['free']['url'])
 
-# --- 5. PROGRESS SECTION ---
+# Daily Action Logic
+st.info(f"📅 **Today's Plan:** To finish this in 2 months, invest **45 mins** today.")
+
+if st.button("✅ I did 45 mins of learning"):
+    st.session_state.course_progress_hours += 0.75
+    st.session_state.user_progress += 1
+    st.balloons()
+    st.rerun()
+
+# 2. THE HOLISTIC CHECK-IN (Non-Negotiables)
 st.divider()
-st.subheader("📊 Your Growth Log")
-if not df.empty:
-    st.dataframe(df)
-else:
-    st.write("No history found. Complete a task to start your streak.")
+st.subheader("2. The Non-Negotiables (Life Balance)")
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    st.write("❤️ **Relationship**")
+    if st.button("Called/Messaged Partner"):
+        st.toast("Relationship deposit made! 💍")
+
+with c2:
+    st.write("💪 **Health**")
+    if st.button("Did 30 min Activity"):
+        st.toast("Body energized! ⚡")
+
+with c3:
+    st.write("🌍 **Impact**")
+    if st.button("Read Social Cause News"):
+        st.toast("Perspective widened. 🌏")
+
+# 3. REAL-TIME CONTENT FEED (Simulated)
+st.divider()
+st.subheader("📰 Fresh Reads for You (Simulated Feed)")
+st.caption("Curated based on your 'CEO by 32' Goal")
+
+# This list simulates a "Daily Feed" that could come from an API later
+feed = [
+    {"source": "Harvard Biz Review", "title": "Why 30-year-old CEOs fail (and how to avoid it)", "tag": "Strategy"},
+    {"source": "TechCrunch", "title": "The rise of AI in Fintech: What PMs need to know", "tag": "Industry"},
+    {"source": "Psychology Today", "title": "Overcoming 'Imposter Syndrome' in High Growth Roles", "tag": "Mindset"}
+]
+
+for item in feed:
+    with st.expander(f"{item['tag']}: {item['title']}"):
+        st.write(f"Source: {item['source']}")
+        st.write("Read this to stay ahead of the curve.")
