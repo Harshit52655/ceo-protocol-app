@@ -1,19 +1,21 @@
 import streamlit as st
 import random
-import brain  # Importing our logic file
-from mood_library import mood_matrix # Importing for the dropdown list
+import brain
+import db_handler  # <--- NEW IMPORT
+from mood_library import mood_matrix
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Harshit's Mood OS", page_icon="🦁", layout="wide")
 
 # --- SESSION STATE ---
 if 'active_project' not in st.session_state:
-    st.session_state.active_project = {"name": "Python (Boss Coder)", "hours_done": 12.0, "total_hours": 60}
+    # <--- CHANGE: Load from DB instead of hardcoded data
+    st.session_state.active_project = db_handler.load_data()
 
 if 'current_mood' not in st.session_state:
     st.session_state.current_mood = "🔥 High Energy"
 
-# Initialize Tasks if empty (Using brain.py logic)
+# Initialize Tasks if empty
 if 'tasks' not in st.session_state:
     st.session_state.tasks = {
         "dharma": brain.get_task("dharma", st.session_state.current_mood, st.session_state.active_project, mode="course"),
@@ -28,10 +30,8 @@ st.title("🦁 Harshit's Life Protocol")
 st.write("### How are you feeling right now?")
 selected_mood = st.selectbox("", list(mood_matrix.keys()), label_visibility="collapsed")
 
-# If mood changes, auto-shuffle everything
 if selected_mood != st.session_state.current_mood:
     st.session_state.current_mood = selected_mood
-    # Calls the BRAIN to get new tasks
     st.session_state.tasks['dharma'] = brain.get_task("dharma", st.session_state.current_mood, st.session_state.active_project, mode="course")
     st.session_state.tasks['spirit'] = brain.get_task("spirit", st.session_state.current_mood, st.session_state.active_project)
     st.session_state.tasks['leela'] = brain.get_task("leela", st.session_state.current_mood, st.session_state.active_project)
@@ -39,7 +39,6 @@ if selected_mood != st.session_state.current_mood:
 
 st.divider()
 
-# COLUMNS
 col1, col2, col3 = st.columns([1, 1, 1])
 
 # --- 1. DHARMA (Duty) ---
@@ -55,13 +54,14 @@ with col1:
         if t.get('is_course'):
             if st.button("✅ Log 20 Mins"):
                 st.session_state.active_project['hours_done'] += 0.33
+                # <--- NEW: Save immediately when you log time
+                db_handler.save_data(st.session_state.active_project)
                 st.balloons()
                 st.rerun()
         else:
             if st.button("✅ Mark Read"):
                 st.success("Done.")
 
-    # Shuffle Buttons
     c1, c2 = st.columns(2)
     if c1.button("🔄 Swap (Mood Based)"):
         st.session_state.tasks['dharma'] = brain.get_task("dharma", st.session_state.current_mood, st.session_state.active_project, mode="random")
@@ -123,7 +123,9 @@ with st.sidebar:
                 "total_hours": new_hours,
                 "hours_done": new_done
             }
-            # Update Dharma task to reflect new project name
+            # <--- NEW: Save immediately when you edit project
+            db_handler.save_data(st.session_state.active_project)
+            
             st.session_state.tasks['dharma'] = brain.get_task("dharma", st.session_state.current_mood, st.session_state.active_project, mode="course")
-            st.success("Project Updated!")
+            st.success("Project Updated & Saved!")
             st.rerun()
